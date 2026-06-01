@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWTS Universe</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+</head>
+<body>
+  <div id="header">
+    <h1>DWTS Universe</h1>
+    <div id="season-picker"></div>
+  </div>
+  <div id="main">
+    <div id="graph-area">
+      <svg id="esvg"></svg>
+    </div>
+    <div id="panel">
+      <p class="hint">Tap any node to explore their story</p>
+    </div>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

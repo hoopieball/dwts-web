@@ -1,0 +1,297 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: #0f0f0f;
+  color: #e8e8e8;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#header {
+  padding: 12px 20px;
+  border-bottom: 0.5px solid #2a2a2a;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+#header h1 {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: #fff;
+}
+
+#season-picker {
+  display: flex;
+  gap: 6px;
+}
+
+.season-btn {
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 0.5px solid #333;
+  background: transparent;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.season-btn.active, .season-btn:hover {
+  background: #7F77DD;
+  border-color: #7F77DD;
+  color: #fff;
+}
+
+#main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 0;
+}
+
+#graph-area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+#esvg {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+.node {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  cursor: pointer;
+  text-align: center;
+  z-index: 2;
+}
+
+.node-circle {
+  border-radius: 50%;
+  margin: 0 auto 4px;
+  overflow: hidden;
+  border: 2px solid #1a1a1a;
+  transition: transform 0.15s;
+}
+
+.node:hover .node-circle { transform: scale(1.12); }
+.node.selected .node-circle { outline: 2.5px solid #7F77DD; outline-offset: 3px; }
+
+.node-circle img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.node-circle .ini {
+  width: 100%; height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  font-size: 12px;
+}
+
+.node-label {
+  font-size: 10px;
+  color: #888;
+  white-space: nowrap;
+  background: #1a1a1a;
+  padding: 1px 6px;
+  border-radius: 20px;
+  display: inline-block;
+}
+
+#panel {
+  width: 340px;
+  flex-shrink: 0;
+  border-left: 0.5px solid #2a2a2a;
+  overflow-y: auto;
+  padding: 16px;
+  background: #111;
+}
+
+.hint { color: #555; font-size: 14px; }
+
+.back {
+  font-size: 13px;
+  color: #666;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.back:hover { color: #ccc; }
+
+.phead {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.avatar {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  border: 1.5px solid #2a2a2a;
+}
+
+.avatar img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: top center;
+}
+
+.pname { font-size: 16px; font-weight: 500; color: #fff; }
+.prole { font-size: 13px; color: #666; margin-top: 2px; }
+.pbio  { font-size: 12px; color: #555; margin-top: 4px; line-height: 1.5; }
+
+.finish-badge {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.f1   { background: #3a2e0f; color: #d4a843; }
+.f2   { background: #222; color: #888; }
+.f3   { background: #0d2a1f; color: #2ecc71; }
+.felim { background: #2a0f0f; color: #e05555; }
+
+.section-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: #444;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 8px;
+}
+
+.conn-tags { margin-bottom: 14px; }
+
+.ctag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  margin: 0 4px 6px 0;
+  border: 0.5px solid #2a2a2a;
+  background: #1a1a1a;
+  color: #888;
+  transition: border-color 0.15s;
+}
+
+.ctag:hover { border-color: #555; color: #ccc; }
+
+.ctag img {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.mcard {
+  background: #1a1a1a;
+  border: 0.5px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+}
+
+.mseason { font-size: 11px; color: #555; margin-bottom: 2px; }
+.mtitle  { font-size: 14px; font-weight: 500; color: #e8e8e8; margin-bottom: 4px; }
+.mdesc   { font-size: 13px; color: #888; line-height: 1.5; margin-bottom: 8px; }
+
+.tag {
+  display: inline-block;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  margin: 2px;
+}
+
+.t-drama   { background: #2a1020; color: #e07090; }
+.t-triumph { background: #0d2a1f; color: #2ecc71; }
+.t-bond    { background: #1a1840; color: #9b96f5; }
+.t-rivalry { background: #2a1808; color: #e08050; }
+.t-snub    { background: #2a2008; color: #d4a843; }
+.t-family  { background: #0d2a1f; color: #2ecc71; }
+
+.vthumb {
+  width: 100%;
+  aspect-ratio: 16/9;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+  position: relative;
+  background: #000;
+  margin-bottom: 6px;
+}
+
+.vthumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.vplay {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.35);
+}
+
+.vplay:hover { background: rgba(0,0,0,0.55); }
+
+.vbtn {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.9);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+
+.vframe { width: 100%; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
+.vframe iframe { width: 100%; height: 100%; border: none; }
+
+.legend {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  z-index: 10;
+}
+
+.leg {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #555;
+  background: rgba(15,15,15,0.8);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+.loading {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #444; font-size: 14px;
+}
+
+@media (max-width: 600px) {
+  #main { flex-direction: column; }
+  #panel { width: 100%; border-left: none; border-top: 0.5px solid #2a2a2a; max-height: 45vh; }
+}

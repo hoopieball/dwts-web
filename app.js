@@ -5,19 +5,178 @@ let selectedPerson = null;
 let currentSeason = 34;
 
 const EDGE_COLORS = {
-  partnership: '#7F77DD',
-  family:      '#1D9E75',
-  rivalry:     '#D85A30',
-  showmance:   '#D4537E',
+  partnership:  '#7F77DD',
+  family:       '#1D9E75',
+  rivalry:      '#D85A30',
+  showmance:    '#D4537E',
   center_stage: '#E0A830',
-  sytycd:      '#5ba8d4'
+  sytycd:       '#5ba8d4'
 };
+
+// ── Zoom & Pan state ──────────────────────────────────────
+
+let scale = 1;
+let panX = 0;
+let panY = 0;
+let isPanning = false;
+let startX = 0, startY = 0;
+let startPanX = 0, startPanY = 0;
+let lastTouchDist = 0;
+let lastTouchMidX = 0, lastTouchMidY = 0;
+const MIN_SCALE = 0.4;
+const MAX_SCALE = 3;
+
+function initZoomPan() {
+  const wrap = document.getElementById('graph-area');
+
+  // Create inner container for transforms
+  const inner = document.createElement('div');
+  inner.id = 'graph-inner';
+  inner.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;';
+
+  // Move SVG into inner
+  const svg = document.getElementById('esvg');
+  inner.appendChild(svg);
+  wrap.appendChild(inner);
+
+  // ── Mouse wheel zoom ──────────────────────
+  wrap.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const rect = wrap.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * delta));
+
+    // Zoom toward cursor position
+    panX = mouseX - (mouseX - panX) * (newScale / scale);
+    panY = mouseY - (mouseY - panY) * (newScale / scale);
+    scale = newScale;
+
+    applyTransform();
+  }, { passive: false });
+
+  // ── Mouse drag to pan ─────────────────────
+  wrap.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.node')) return; // don't pan when clicking nodes
+    isPanning = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    startPanX = panX;
+    startPanY = panY;
+    wrap.style.cursor = 'grabbing';
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    panX = startPanX + (e.clientX - startX);
+    panY = startPanY + (e.clientY - startY);
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isPanning = false;
+    wrap.style.cursor = 'grab';
+  });
+
+  wrap.style.cursor = 'grab';
+
+  // ── Touch: pinch zoom + drag ──────────────
+  wrap.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      lastTouchDist = getTouchDist(e.touches);
+      const mid = getTouchMid(e.touches);
+      lastTouchMidX = mid.x;
+      lastTouchMidY = mid.y;
+      startPanX = panX;
+      startPanY = panY;
+    } else if (e.touches.length === 1 && !e.target.closest('.node')) {
+      isPanning = true;
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      startPanX = panX;
+      startPanY = panY;
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2) {
+      e.preventDefault();
+      const dist = getTouchDist(e.touches);
+      const mid = getTouchMid(e.touches);
+      const rect = wrap.getBoundingClientRect();
+      const midX = mid.x - rect.left;
+      const midY = mid.y - rect.top;
+
+      const delta = dist / lastTouchDist;
+      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * delta));
+
+      // Zoom toward pinch midpoint
+      panX = midX - (midX - panX) * (newScale / scale);
+      panY = midY - (midY - panY) * (newScale / scale);
+      scale = newScale;
+
+      // Also pan with the pinch movement
+      panX += (mid.x - lastTouchMidX);
+      panY += (mid.y - lastTouchMidY);
+
+      lastTouchDist = dist;
+      lastTouchMidX = mid.x;
+      lastTouchMidY = mid.y;
+
+      applyTransform();
+    } else if (e.touches.length === 1 && isPanning) {
+      panX = startPanX + (e.touches[0].clientX - startX);
+      panY = startPanY + (e.touches[0].clientY - startY);
+      applyTransform();
+    }
+  }, { passive: false });
+
+  wrap.addEventListener('touchend', () => {
+    isPanning = false;
+    lastTouchDist = 0;
+  });
+}
+
+function getTouchDist(touches) {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+function getTouchMid(touches) {
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2,
+    y: (touches[0].clientY + touches[1].clientY) / 2
+  };
+}
+
+function applyTransform() {
+  const inner = document.getElementById('graph-inner');
+  if (inner) {
+    inner.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+  }
+}
+
+function resetZoom() {
+  scale = 1;
+  panX = 0;
+  panY = 0;
+  applyTransform();
+}
 
 // ── Data loading ──────────────────────────────────────────────
 
 async function loadData(season) {
   const wrap = document.getElementById('graph-area');
-  wrap.innerHTML = '<svg id="esvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg><div class="loading">Loading season ' + season + '...</div>';
+
+  // Preserve graph-inner if it exists, otherwise show loading
+  let inner = document.getElementById('graph-inner');
+  if (!inner) {
+    wrap.innerHTML = '<svg id="esvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg><div class="loading">Loading season ' + season + '...</div>';
+  }
 
   const [{ data: pData }, { data: cData }] = await Promise.all([
     client.from('people').select('*'),
@@ -36,7 +195,15 @@ async function loadData(season) {
     moments = [];
   }
 
-  wrap.querySelector('.loading')?.remove();
+  // Remove loading
+  const loading = wrap.querySelector('.loading');
+  if (loading) loading.remove();
+
+  // Init zoom/pan if first load
+  if (!document.getElementById('graph-inner')) {
+    initZoomPan();
+  }
+
   addLegend();
   render();
 }
@@ -45,11 +212,12 @@ async function loadData(season) {
 
 function render() {
   const wrap = document.getElementById('graph-area');
-  const svg  = document.getElementById('esvg');
+  const inner = document.getElementById('graph-inner');
+  const svg = document.getElementById('esvg');
   const W = wrap.offsetWidth, H = wrap.offsetHeight;
 
   svg.innerHTML = '';
-  wrap.querySelectorAll('.node').forEach(n => n.remove());
+  inner.querySelectorAll('.node').forEach(n => n.remove());
 
   // Get people visible in this season
   const seasonPeople = getPeopleForSeason();
@@ -76,18 +244,21 @@ function render() {
     const el = document.createElement('div');
     el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
     el.style.left = p.x_pos + '%';
-    el.style.top  = p.y_pos + '%';
+    el.style.top = p.y_pos + '%';
     const size = p.role === 'pro' ? 52 : 42;
     el.innerHTML = `
       <div class="node-circle" style="width:${size}px;height:${size}px;">
         ${p.photo_url
-          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
-          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
+          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color || '#333'};color:${p.text_color || '#fff'};>${p.initials || '?'}</div>'">`
+          : `<div class="ini" style="background:${p.bg_color || '#333'};color:${p.text_color || '#fff'};">${p.initials || '?'}</div>`
         }
       </div>
       <div class="node-label">${p.name.split(' ')[0]}</div>`;
-    el.addEventListener('click', () => selectPerson(p.id));
-    wrap.appendChild(el);
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectPerson(p.id);
+    });
+    inner.appendChild(el);
   });
 }
 
@@ -102,9 +273,12 @@ function addLegend() {
   wrap.querySelectorAll('.legend').forEach(l => l.remove());
   const leg = document.createElement('div');
   leg.className = 'legend';
+
+  // Add zoom controls to legend area
   leg.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
-    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type}</div>`
-  ).join('');
+    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace('_', ' ')}</div>`
+  ).join('') +
+    `<div class="leg" style="margin-left:auto;cursor:pointer;" onclick="resetZoom()">↺ reset zoom</div>`;
   wrap.appendChild(leg);
 }
 
@@ -139,7 +313,7 @@ function showPersonPanel(id) {
         const other = people.find(x => x.id === otherId);
         if (!other) return '';
         return `<span class="ctag" onclick="showEdgePanel('${id}','${otherId}')">
-          ${miniAvatar(other)} ${other.name.split(' ')[0]} <span style="opacity:0.5">· ${c.type}</span>
+          ${miniAvatar(other)} ${other.name.split(' ')[0]} <span style="opacity:0.5">· ${c.type.replace('_', ' ')}</span>
         </span>`;
       }).join('')}
     </div>
@@ -169,7 +343,7 @@ function showEdgePanel(a, b) {
       ${avatarHtml(pb, 40)}
       <div>
         <div class="pname" style="font-size:15px;">${pa.name.split(' ')[0]} & ${pb.name.split(' ')[0]}</div>
-        <div class="prole">${conn ? conn.label || conn.type : ''}</div>
+        <div class="prole">${conn ? conn.label || conn.type.replace('_', ' ') : ''}</div>
       </div>
     </div>
     ${edgeMoments.length
@@ -185,7 +359,7 @@ function avatarHtml(p, size = 48) {
   return `<div class="avatar" style="width:${size}px;height:${size}px;">
     ${p.photo_url
       ? `<img src="${p.photo_url}" alt="${p.name}">`
-      : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${p.initials||'?'}</div>`
+      : `<div class="ini" style="background:${p.bg_color || '#333'};color:${p.text_color || '#fff'};width:100%;height:100%;display:flex;align-items:center;justify-content:center;">${p.initials || '?'}</div>`
     }
   </div>`;
 }
@@ -194,7 +368,7 @@ function miniAvatar(p) {
   return `<div style="width:20px;height:20px;border-radius:50%;overflow:hidden;flex-shrink:0;">
     ${p.photo_url
       ? `<img src="${p.photo_url}" style="width:100%;height:100%;object-fit:cover;object-position:top;">`
-      : `<div style="width:100%;height:100%;background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};display:flex;align-items:center;justify-content:center;font-size:9px;">${p.initials||'?'}</div>`
+      : `<div style="width:100%;height:100%;background:${p.bg_color || '#333'};color:${p.text_color || '#fff'};display:flex;align-items:center;justify-content:center;font-size:9px;">${p.initials || '?'}</div>`
     }
   </div>`;
 }
@@ -248,6 +422,7 @@ function buildSeasonPicker() {
       document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       selectedPerson = null;
+      resetZoom();
       loadData(s);
     };
     picker.appendChild(btn);
@@ -256,11 +431,12 @@ function buildSeasonPicker() {
 
 // ── Init ──────────────────────────────────────────────────────
 
-window.selectPerson  = selectPerson;
+window.selectPerson = selectPerson;
 window.showPersonPanel = showPersonPanel;
 window.showEdgePanel = showEdgePanel;
-window.clearSel      = clearSel;
-window.playVid       = playVid;
+window.clearSel = clearSel;
+window.playVid = playVid;
+window.resetZoom = resetZoom;
 
 buildSeasonPicker();
 loadData(currentSeason);

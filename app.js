@@ -8,7 +8,9 @@ const EDGE_COLORS = {
   partnership: '#7F77DD',
   family:      '#1D9E75',
   rivalry:     '#D85A30',
-  showmance:   '#D4537E'
+  showmance:   '#D4537E',
+  center_stage: '#E0A830',
+  sytycd:      '#5ba8d4'
 };
 
 // ── Data loading ──────────────────────────────────────────────

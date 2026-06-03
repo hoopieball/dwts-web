@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DWTS Universe — Admin</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0f0f0f;
+      color: #e8e8e8;
+      min-height: 100vh;
+    }
+
+    /* ── Login ──────────────────────────────── */
+    #login-screen {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: #161616;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 360px;
+    }
+
+    .login-box h1 {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .login-box p {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 24px;
+    }
+
+    /* ── Forms ──────────────────────────────── */
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: #666;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      background: #1a1a1a;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 8px;
+      color: #e8e8e8;
+      font-size: 14px;
+      font-family: inherit;
+      margin-bottom: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      border-color: #7F77DD;
+    }
+
+    textarea { resize: vertical; min-height: 80px; }
+
+    select { cursor: pointer; }
+
+    button {
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .btn-primary {
+      background: #7F77DD;
+      color: #fff;
+      width: 100%;
+    }
+
+    .btn-primary:hover { background: #6b63c7; }
+
+    .btn-small {
+      padding: 6px 14px;
+      font-size: 12px;
+      background: #1a1a1a;
+      border: 0.5px solid #2a2a2a;
+      color: #888;
+    }
+
+    .btn-small:hover { border-color: #555; color: #ccc; }
+
+    .btn-danger {
+      padding: 6px 14px;
+      font-size: 12px;
+      background: #2a0f0f;
+      border: 0.5px solid #3a1515;
+      color: #e05555;
+    }
+
+    .btn-danger:hover { background: #3a1515; }
+
+    /* ── Layout ─────────────────────────────── */
+    #app { display: none; }
+
+    #header {
+      padding: 14px 24px;
+      border-bottom: 0.5px solid #2a2a2a;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: #0f0f0f;
+      z-index: 100;
+    }
+
+    #header h1 { font-size: 16px; font-weight: 600; }
+    #header .user-info { font-size: 12px; color: #666; display: flex; align-items: center; gap: 12px; }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 0.5px solid #2a2a2a;
+      padding: 0 24px;
+      position: sticky;
+      top: 49px;
+      background: #0f0f0f;
+      z-index: 99;
+    }
+
+    .tab {
+      padding: 12px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: #555;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: all 0.15s;
+      background: none;
+      border-radius: 0;
+    }
+
+    .tab:hover { color: #aaa; }
+    .tab.active { color: #7F77DD; border-bottom-color: #7F77DD; }
+
+    .content { padding: 24px; max-width: 800px; }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+    }
+
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* ── Cards ──────────────────────────────── */
+    .card {
+      background: #161616;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin-bottom: 8px;
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .card-info { flex: 1; min-width: 0; }
+
+    .card-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #e8e8e8;
+      margin-bottom: 2px;
+    }
+
+    .card-sub {
+      font-size: 12px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .avatar-sm {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      overflow: hidden;
+      flex-shrink: 0;
+      border: 1px solid #2a2a2a;
+    }
+
+    .avatar-sm img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .avatar-sm .ini {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 500;
+    }
+
+    /* ── Modal ──────────────────────────────── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .modal-overlay.open { display: flex; }
+
+    .modal {
+      background: #161616;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      max-height: 85vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 18px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      margin-top: 8px;
+    }
+
+    .tag {
+      display: inline-block;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      margin: 1px;
+    }
+
+    .t-pro { background: #0d2a1f; color: #2ecc71; }
+    .t-celeb { background: #2a2008; color: #d4a843; }
+    .t-judge { background: #1a1840; color: #9b96f5; }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #1D9E75;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 300;
+      opacity: 0;
+      transform: translateY(10px);
+      transition: all 0.3s;
+    }
+
+    .toast.show { opacity: 1; transform: translateY(0); }
+
+    .row { display: flex; gap: 12px; }
+    .row > * { flex: 1; }
+
+    .empty {
+      text-align: center;
+      padding: 40px;
+      color: #444;
+      font-size: 14px;
+    }
+
+    .search-bar {
+      margin-bottom: 16px;
+    }
+
+    .search-bar input {
+      margin-bottom: 0;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Login -->
+<div id="login-screen">
+  <div class="login-box">
+    <h1>DWTS Universe</h1>
+    <p>Admin panel — sign in to manage data</p>
+    <label>Email</label>
+    <input type="email" id="login-email" placeholder="your@email.com">
+    <label>Password</label>
+    <input type="password" id="login-pass" placeholder="••••••••">
+    <button class="btn-primary" onclick="doLogin()">Sign in</button>
+    <p id="login-error" style="color:#e05555;font-size:12px;margin-top:12px;display:none;"></p>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app">
+  <div id="header">
+    <h1>DWTS Admin</h1>
+    <div class="user-info">
+      <span id="user-email"></span>
+      <button class="btn-small" onclick="doLogout()">Sign out</button>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-tab="people" onclick="switchTab('people')">People</button>
+    <button class="tab" data-tab="connections" onclick="switchTab('connections')">Connections</button>
+    <button class="tab" data-tab="moments" onclick="switchTab('moments')">Moments</button>
+  </div>
+
+  <!-- People Tab -->
+  <div class="content tab-content" id="tab-people">
+    <div class="section-header">
+      <h2>People</h2>
+      <button class="btn-small" onclick="openPersonModal()">+ Add person</button>
+    </div>
+    <div class="search-bar">
+      <input type="text" id="people-search" placeholder="Search people..." oninput="renderPeople()">
+    </div>
+    <div id="people-list"></div>
+  </div>
+
+  <!-- Connections Tab -->
+  <div class="content tab-content" id="tab-connections" style="display:none;">
+    <div class="section-header">
+      <h2>Connections</h2>
+      <button class="btn-small" onclick="openConnectionModal()">+ Add connection</button>
+    </div>
+    <div id="connections-list"></div>
+  </div>
+
+  <!-- Moments Tab -->
+  <div class="content tab-content" id="tab-moments" style="display:none;">
+    <div class="section-header">
+      <h2>Moments</h2>
+      <button class="btn-small" onclick="openMomentModal()">+ Add moment</button>
+    </div>
+    <div id="moments-list"></div>
+  </div>
+</div>
+
+<!-- Person Modal -->
+<div class="modal-overlay" id="person-modal">
+  <div class="modal">
+    <h3 id="person-modal-title">Add Person</h3>
+    <div class="row">
+      <div><label>ID (slug)</label><input type="text" id="p-id" placeholder="e.g. derek"></div>
+      <div><label>Initials</label><input type="text" id="p-initials" placeholder="DH" maxlength="3"></div>
+    </div>
+    <label>Full Name</label>
+    <input type="text" id="p-name" placeholder="Derek Hough">
+    <div class="row">
+      <div><label>Role</label>
+        <select id="p-role">
+          <option value="pro">Pro</option>
+          <option value="celeb">Celebrity</option>
+          <option value="judge">Judge</option>
+        </select>
+      </div>
+      <div><label>Seasons (comma sep)</label><input type="text" id="p-seasons" placeholder="21,34"></div>
+    </div>
+    <label>Bio</label>
+    <textarea id="p-bio" placeholder="Short bio..."></textarea>
+    <label>Photo URL (or Supabase storage path)</label>
+    <input type="text" id="p-photo" placeholder="https://...">
+    <div class="row">
+      <div><label>X Position (0-100)</label><input type="number" id="p-x" placeholder="50" min="0" max="100"></div>
+      <div><label>Y Position (0-100)</label><input type="number" id="p-y" placeholder="50" min="0" max="100"></div>
+    </div>
+    <div class="row">
+      <div><label>BG Color</label><input type="text" id="p-bg" placeholder="#FAEEDA"></div>
+      <div><label>Text Color</label><input type="text" id="p-tc" placeholder="#633806"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-small" onclick="closeModal('person-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;" onclick="savePerson()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Connection Modal -->
+<div class="modal-overlay" id="connection-modal">
+  <div class="modal">
+    <h3 id="connection-modal-title">Add Connection</h3>
+    <div class="row">
+      <div><label>Person A</label><select id="c-a"></select></div>
+      <div><label>Person B</label><select id="c-b"></select></div>
+    </div>
+    <div class="row">
+      <div><label>Type</label>
+        <select id="c-type">
+          <option value="partnership">Partnership</option>
+          <option value="family">Family / Bond</option>
+          <option value="rivalry">Rivalry / Drama</option>
+          <option value="showmance">Showmance</option>
+        </select>
+      </div>
+      <div><label>Season</label><input type="number" id="c-season" placeholder="34"></div>
+    </div>
+    <label>Label</label>
+    <input type="text" id="c-label" placeholder="Season 34 winners">
+    <label>Finish Position (optional)</label>
+    <input type="number" id="c-finish" placeholder="1">
+    <div class="modal-actions">
+      <button class="btn-small" onclick="closeModal('connection-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;" onclick="saveConnection()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Moment Modal -->
+<div class="modal-overlay" id="moment-modal">
+  <div class="modal">
+    <h3 id="moment-modal-title">Add Moment</h3>
+    <label>Connection</label>
+    <select id="m-connection"></select>
+    <div class="row">
+      <div><label>Season</label><input type="number" id="m-season" placeholder="34"></div>
+      <div><label>Week</label><input type="text" id="m-week" placeholder="Finale"></div>
+    </div>
+    <label>Title</label>
+    <input type="text" id="m-title" placeholder="The moment that changed everything">
+    <label>Description</label>
+    <textarea id="m-desc" placeholder="What happened and why it matters..."></textarea>
+    <label>YouTube Video ID</label>
+    <input type="text" id="m-youtube" placeholder="e.g. JYR0eV8W8bU">
+    <div id="m-preview" style="margin-bottom:14px;"></div>
+    <label>Tags (comma sep)</label>
+    <input type="text" id="m-tags" placeholder="drama,triumph,bond">
+    <div class="modal-actions">
+      <button class="btn-small" onclick="closeModal('moment-modal')">Cancel</button>
+      <button class="btn-primary" style="width:auto;" onclick="saveMoment()">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let people = [], connections = [], moments = [];
+let editingPerson = null, editingConnection = null, editingMoment = null;
+
+// ── Auth ────────────────────────────────────
+
+async function doLogin() {
+  const email = document.getElementById('login-email').value;
+  const pass = document.getElementById('login-pass').value;
+  const errEl = document.getElementById('login-error');
+  errEl.style.display = 'none';
+
+  const { data, error } = await client.auth.signInWithPassword({ email, password: pass });
+  if (error) {
+    errEl.textContent = error.message;
+    errEl.style.display = 'block';
+    return;
+  }
+  showApp(data.user);
+}
+
+async function doLogout() {
+  await client.auth.signOut();
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+}
+
+async function checkSession() {
+  const { data: { user } } = await client.auth.getUser();
+  if (user) showApp(user);
+}
+
+function showApp(user) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  document.getElementById('user-email').textContent = user.email;
+  loadAll();
+}
+
+// ── Data ────────────────────────────────────
+
+async function loadAll() {
+  const [{ data: p }, { data: c }, { data: m }] = await Promise.all([
+    client.from('people').select('*').order('name'),
+    client.from('connections').select('*').order('season', { ascending: false }),
+    client.from('moments').select('*').order('created_at', { ascending: false }),
+  ]);
+  people = p || [];
+  connections = c || [];
+  moments = m || [];
+  renderPeople();
+  renderConnections();
+  renderMoments();
+}
+
+// ── Tabs ────────────────────────────────────
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = 'none');
+  document.getElementById('tab-' + tab).style.display = 'block';
+}
+
+// ── People ──────────────────────────────────
+
+function renderPeople() {
+  const search = (document.getElementById('people-search')?.value || '').toLowerCase();
+  const filtered = people.filter(p => p.name.toLowerCase().includes(search) || p.id.includes(search));
+  const el = document.getElementById('people-list');
+  if (!filtered.length) { el.innerHTML = '<div class="empty">No people found</div>'; return; }
+
+  el.innerHTML = filtered.map(p => `
+    <div class="card">
+      <div class="avatar-sm">
+        ${p.photo_url
+          ? `<img src="${p.photo_url}" alt="${p.name}">`
+          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
+        }
+      </div>
+      <div class="card-info">
+        <div class="card-title">${p.name} <span class="tag t-${p.role}">${p.role}</span></div>
+        <div class="card-sub">${p.bio || 'No bio'}</div>
+      </div>
+      <div class="card-actions">
+        <button class="btn-small" onclick="editPerson('${p.id}')">Edit</button>
+        <button class="btn-danger" onclick="deletePerson('${p.id}')">✕</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openPersonModal(p) {
+  editingPerson = p || null;
+  document.getElementById('person-modal-title').textContent = p ? 'Edit Person' : 'Add Person';
+  document.getElementById('p-id').value = p?.id || '';
+  document.getElementById('p-id').disabled = !!p;
+  document.getElementById('p-name').value = p?.name || '';
+  document.getElementById('p-role').value = p?.role || 'celeb';
+  document.getElementById('p-bio').value = p?.bio || '';
+  document.getElementById('p-photo').value = p?.photo_url || '';
+  document.getElementById('p-seasons').value = (p?.seasons || []).join(',');
+  document.getElementById('p-x').value = p?.x_pos ?? '';
+  document.getElementById('p-y').value = p?.y_pos ?? '';
+  document.getElementById('p-bg').value = p?.bg_color || '#FAEEDA';
+  document.getElementById('p-tc').value = p?.text_color || '#633806';
+  document.getElementById('p-initials').value = p?.initials || '';
+  openModal('person-modal');
+}
+
+function editPerson(id) {
+  openPersonModal(people.find(p => p.id === id));
+}
+
+async function savePerson() {
+  const obj = {
+    id: document.getElementById('p-id').value.trim().toLowerCase(),
+    name: document.getElementById('p-name').value.trim(),
+    role: document.getElementById('p-role').value,
+    bio: document.getElementById('p-bio').value.trim(),
+    photo_url: document.getElementById('p-photo').value.trim() || null,
+    seasons: document.getElementById('p-seasons').value.split(',').map(s => parseInt(s.trim())).filter(Boolean),
+    x_pos: parseFloat(document.getElementById('p-x').value) || 50,
+    y_pos: parseFloat(document.getElementById('p-y').value) || 50,
+    bg_color: document.getElementById('p-bg').value.trim(),
+    text_color: document.getElementById('p-tc').value.trim(),
+    initials: document.getElementById('p-initials').value.trim().toUpperCase(),
+  };
+
+  if (!obj.id || !obj.name) { toast('ID and Name are required', true); return; }
+
+  let error;
+  if (editingPerson) {
+    ({ error } = await client.from('people').update(obj).eq('id', editingPerson.id));
+  } else {
+    ({ error } = await client.from('people').insert(obj));
+  }
+
+  if (error) { toast(error.message, true); return; }
+  closeModal('person-modal');
+  toast(editingPerson ? 'Person updated' : 'Person added');
+  loadAll();
+}
+
+async function deletePerson(id) {
+  if (!confirm(`Delete ${id}? This will also delete related connections and moments.`)) return;
+  await client.from('moments').delete().or(`person_id.eq.${id},connection_id.in.(select id from connections where person_a='${id}' or person_b='${id}')`);
+  await client.from('connections').delete().or(`person_a.eq.${id},person_b.eq.${id}`);
+  await client.from('people').delete().eq('id', id);
+  toast('Person deleted');
+  loadAll();
+}
+
+// ── Connections ─────────────────────────────
+
+function renderConnections() {
+  const el = document.getElementById('connections-list');
+  if (!connections.length) { el.innerHTML = '<div class="empty">No connections yet</div>'; return; }
+
+  el.innerHTML = connections.map(c => {
+    const pa = people.find(p => p.id === c.person_a);
+    const pb = people.find(p => p.id === c.person_b);
+    const mCount = moments.filter(m => m.connection_id === c.id).length;
+    return `
+      <div class="card">
+        <div class="card-info">
+          <div class="card-title">${pa?.name || c.person_a} ↔ ${pb?.name || c.person_b}</div>
+          <div class="card-sub">${c.type} · S${c.season || '?'} · ${c.label || 'No label'} · ${mCount} moment${mCount !== 1 ? 's' : ''}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-small" onclick="editConnection('${c.id}')">Edit</button>
+          <button class="btn-danger" onclick="deleteConnection('${c.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function populatePeopleSelects() {
+  const opts = people.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  document.getElementById('c-a').innerHTML = opts;
+  document.getElementById('c-b').innerHTML = opts;
+}
+
+function populateConnectionSelect() {
+  const opts = connections.map(c => {
+    const pa = people.find(p => p.id === c.person_a);
+    const pb = people.find(p => p.id === c.person_b);
+    return `<option value="${c.id}">${pa?.name || c.person_a} ↔ ${pb?.name || c.person_b} (${c.type})</option>`;
+  }).join('');
+  document.getElementById('m-connection').innerHTML = opts;
+}
+
+function openConnectionModal(c) {
+  editingConnection = c || null;
+  populatePeopleSelects();
+  document.getElementById('connection-modal-title').textContent = c ? 'Edit Connection' : 'Add Connection';
+  document.getElementById('c-a').value = c?.person_a || people[0]?.id || '';
+  document.getElementById('c-b').value = c?.person_b || (people[1]?.id || '');
+  document.getElementById('c-type').value = c?.type || 'partnership';
+  document.getElementById('c-season').value = c?.season || 34;
+  document.getElementById('c-label').value = c?.label || '';
+  document.getElementById('c-finish').value = c?.finish_position || '';
+  openModal('connection-modal');
+}
+
+function editConnection(id) {
+  openConnectionModal(connections.find(c => c.id === id));
+}
+
+async function saveConnection() {
+  const obj = {
+    person_a: document.getElementById('c-a').value,
+    person_b: document.getElementById('c-b').value,
+    type: document.getElementById('c-type').value,
+    season: parseInt(document.getElementById('c-season').value) || null,
+    label: document.getElementById('c-label').value.trim(),
+    finish_position: parseInt(document.getElementById('c-finish').value) || null,
+  };
+
+  if (obj.person_a === obj.person_b) { toast('Pick two different people', true); return; }
+
+  let error;
+  if (editingConnection) {
+    ({ error } = await client.from('connections').update(obj).eq('id', editingConnection.id));
+  } else {
+    ({ error } = await client.from('connections').insert(obj));
+  }
+
+  if (error) { toast(error.message, true); return; }
+  closeModal('connection-modal');
+  toast(editingConnection ? 'Connection updated' : 'Connection added');
+  loadAll();
+}
+
+async function deleteConnection(id) {
+  if (!confirm('Delete this connection and its moments?')) return;
+  await client.from('moments').delete().eq('connection_id', id);
+  await client.from('connections').delete().eq('id', id);
+  toast('Connection deleted');
+  loadAll();
+}
+
+// ── Moments ─────────────────────────────────
+
+function renderMoments() {
+  const el = document.getElementById('moments-list');
+  if (!moments.length) { el.innerHTML = '<div class="empty">No moments yet</div>'; return; }
+
+  el.innerHTML = moments.map(m => {
+    const conn = connections.find(c => c.id === m.connection_id);
+    const pa = conn ? people.find(p => p.id === conn.person_a) : null;
+    const pb = conn ? people.find(p => p.id === conn.person_b) : null;
+    const connLabel = pa && pb ? `${pa.name} ↔ ${pb.name}` : 'Unknown';
+    return `
+      <div class="card">
+        <div class="card-info">
+          <div class="card-title">${m.title} ${m.youtube_id ? '🎬' : ''}</div>
+          <div class="card-sub">${connLabel} · S${m.season || '?'} ${m.week ? '· ' + m.week : ''}</div>
+          <div class="card-sub" style="margin-top:2px;">${(m.tags || []).map(t => `<span class="tag" style="background:#222;color:#888;">${t}</span>`).join(' ')}</div>
+        </div>
+        <div class="card-actions">
+          <button class="btn-small" onclick="editMoment('${m.id}')">Edit</button>
+          <button class="btn-danger" onclick="deleteMoment('${m.id}')">✕</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function openMomentModal(m) {
+  editingMoment = m || null;
+  populateConnectionSelect();
+  document.getElementById('moment-modal-title').textContent = m ? 'Edit Moment' : 'Add Moment';
+  document.getElementById('m-connection').value = m?.connection_id || connections[0]?.id || '';
+  document.getElementById('m-season').value = m?.season || 34;
+  document.getElementById('m-week').value = m?.week || '';
+  document.getElementById('m-title').value = m?.title || '';
+  document.getElementById('m-desc').value = m?.description || '';
+  document.getElementById('m-youtube').value = m?.youtube_id || '';
+  document.getElementById('m-tags').value = (m?.tags || []).join(', ');
+  updateVideoPreview();
+  openModal('moment-modal');
+}
+
+function editMoment(id) {
+  openMomentModal(moments.find(m => m.id === id));
+}
+
+async function saveMoment() {
+  const ytId = document.getElementById('m-youtube').value.trim();
+  const obj = {
+    connection_id: document.getElementById('m-connection').value,
+    season: parseInt(document.getElementById('m-season').value) || null,
+    week: document.getElementById('m-week').value.trim() || null,
+    title: document.getElementById('m-title').value.trim(),
+    description: document.getElementById('m-desc').value.trim(),
+    youtube_id: ytId || null,
+    thumb_url: ytId ? `https://img.youtube.com/vi/${ytId}/hqdefault.jpg` : null,
+    tags: document.getElementById('m-tags').value.split(',').map(t => t.trim()).filter(Boolean),
+  };
+
+  if (!obj.title) { toast('Title is required', true); return; }
+
+  let error;
+  if (editingMoment) {
+    ({ error } = await client.from('moments').update(obj).eq('id', editingMoment.id));
+  } else {
+    ({ error } = await client.from('moments').insert(obj));
+  }
+
+  if (error) { toast(error.message, true); return; }
+  closeModal('moment-modal');
+  toast(editingMoment ? 'Moment updated' : 'Moment added');
+  loadAll();
+}
+
+async function deleteMoment(id) {
+  if (!confirm('Delete this moment?')) return;
+  await client.from('moments').delete().eq('id', id);
+  toast('Moment deleted');
+  loadAll();
+}
+
+// ── YouTube preview ─────────────────────────
+
+document.getElementById('m-youtube')?.addEventListener('input', updateVideoPreview);
+
+function updateVideoPreview() {
+  const ytId = document.getElementById('m-youtube').value.trim();
+  const preview = document.getElementById('m-preview');
+  if (ytId) {
+    preview.innerHTML = `<img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;border-radius:8px;border:0.5px solid #2a2a2a;">`;
+  } else {
+    preview.innerHTML = '';
+  }
+}
+
+// ── Modal helpers ───────────────────────────
+
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+function toast(msg, isError) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.background = isError ? '#e05555' : '#1D9E75';
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ── GRANT for authenticated writes ──────────
+// (You need to run GRANT ALL ON public.people, connections, moments TO authenticated in Supabase SQL editor)
+
+// ── Init ────────────────────────────────────
+checkSession();
+</script>
+
+</body>
+</html>

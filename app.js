@@ -89,10 +89,44 @@ function render() {
   });
 
   // Nodes
-  const nodeSize = isMobile ? { pro: 60, celeb: 48 } : { pro: 52, celeb: 42 };
+  // Count connections per person
+  const connCount = {};
+  connections.forEach(c => {
+    connCount[c.person_a] = (connCount[c.person_a] || 0) + 1;
+    connCount[c.person_b] = (connCount[c.person_b] || 0) + 1;
+  });
+
+  const maxConns = Math.max(...Object.values(connCount), 1);
   const labelSize = isMobile ? '12px' : '10px';
 
+  // Nodes — sized by connection count
   seasonPeople.forEach(p => {
+    const count = connCount[p.id] || 1;
+    const ratio = count / maxConns;
+
+    // Min 36px, max 90px — scales with connections
+    const minSize = isMobile ? 40 : 36;
+    const maxSize = isMobile ? 100 : 90;
+    const size = Math.round(minSize + ratio * (maxSize - minSize));
+
+    const el = document.createElement('div');
+    el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
+    el.style.left = (p.x_pos / 100 * GRAPH_W) + 'px';
+    el.style.top = (p.y_pos / 100 * GRAPH_H) + 'px';
+    el.innerHTML = `
+      <div class="node-circle" style="width:${size}px;height:${size}px;">
+        ${p.photo_url
+          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
+          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
+        }
+      </div>
+      <div class="node-label" style="font-size:${labelSize}">${isMobile ? p.name : p.name.split(' ')[0]}</div>`;
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      selectPerson(p.id);
+    });
+    inner.appendChild(el);
+  });(p => {
     const el = document.createElement('div');
     el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
     el.style.left = (p.x_pos / 100 * GRAPH_W) + 'px';

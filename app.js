@@ -14,7 +14,11 @@ const EDGE_COLORS = {
 };
 
 // ── Zoom & Pan ────────────────────────────────────────────────
+// The graph lives on a large virtual canvas (CANVAS_SIZE x CANVAS_SIZE).
+// We start zoomed out to fit everything, and zooming in reveals real space
+// between nodes rather than just scaling everything up proportionally.
 
+const CANVAS_SIZE = 2000;
 let scale = 1;
 let panX = 0;
 let panY = 0;
@@ -25,20 +29,31 @@ let pinchStartDist = 0;
 let pinchStartScale = 1;
 let pinchMidX = 0, pinchMidY = 0;
 let isMobile = window.innerWidth < 600;
+let initialScale = 1;
 
-const MIN_SCALE = 0.3;
-const MAX_SCALE = 5;
+const MIN_SCALE = 0.15;
+const MAX_SCALE = 2;
+
+function calcInitialScale() {
+  const area = document.getElementById('graph-area');
+  const W = area.offsetWidth;
+  const H = area.offsetHeight;
+  // Fit the canvas into the viewport with some padding
+  initialScale = Math.min(W / CANVAS_SIZE, H / CANVAS_SIZE) * 0.92;
+  scale = initialScale;
+  // Center the canvas
+  panX = (W - CANVAS_SIZE * scale) / 2;
+  panY = (H - CANVAS_SIZE * scale) / 2;
+}
 
 function setupZoomPan() {
   const area = document.getElementById('graph-area');
-
-  // Prevent all browser gestures on the graph
   area.style.touchAction = 'none';
   area.style.webkitUserSelect = 'none';
   area.style.userSelect = 'none';
   area.style.cursor = 'grab';
 
-  // ── Wheel zoom (desktop) ──────────────────
+  // Wheel zoom
   area.addEventListener('wheel', e => {
     e.preventDefault();
     const rect = area.getBoundingClientRect();
@@ -48,7 +63,7 @@ function setupZoomPan() {
     zoomAt(mx, my, factor);
   }, { passive: false });
 
-  // ── Mouse pan (desktop) ───────────────────
+  // Mouse pan
   area.addEventListener('mousedown', e => {
     if (e.target.closest('.node')) return;
     isPanning = true;
@@ -59,26 +74,21 @@ function setupZoomPan() {
     area.style.cursor = 'grabbing';
     e.preventDefault();
   });
-
   window.addEventListener('mousemove', e => {
     if (!isPanning) return;
     panX = panOriginX + (e.clientX - panStartX);
     panY = panOriginY + (e.clientY - panStartY);
     applyTransform();
   });
-
   window.addEventListener('mouseup', () => {
-    if (isPanning) {
-      isPanning = false;
-      area.style.cursor = 'grab';
-    }
+    if (isPanning) { isPanning = false; area.style.cursor = 'grab'; }
   });
 
-  // ── Touch: pinch + pan ────────────────────
+  // Touch pinch + pan
   area.addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
       e.preventDefault();
-      pinchStartDist = dist(e.touches[0], e.touches[1]);
+      pinchStartDist = touchDist(e.touches[0], e.touches[1]);
       pinchStartScale = scale;
       const rect = area.getBoundingClientRect();
       pinchMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
@@ -96,16 +106,13 @@ function setupZoomPan() {
   area.addEventListener('touchmove', e => {
     e.preventDefault();
     if (e.touches.length === 2 && pinchStartDist > 0) {
-      const d = dist(e.touches[0], e.touches[1]);
-      const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale * (d / pinchStartDist)));
-
-      // Zoom toward pinch midpoint
+      const d = touchDist(e.touches[0], e.touches[1]);
+      const newScale = clampScale(pinchStartScale * (d / pinchStartDist));
       const ratio = newScale / scale;
       panX = pinchMidX - (pinchMidX - panX) * ratio;
       panY = pinchMidY - (pinchMidY - panY) * ratio;
       scale = newScale;
       applyTransform();
-
     } else if (e.touches.length === 1 && isPanning) {
       panX = panOriginX + (e.touches[0].clientX - panStartX);
       panY = panOriginY + (e.touches[0].clientY - panStartY);
@@ -118,7 +125,7 @@ function setupZoomPan() {
     if (e.touches.length === 0) isPanning = false;
   });
 
-  // ── Double tap to zoom (mobile) ───────────
+  // Double tap
   let lastTap = 0;
   area.addEventListener('touchend', e => {
     if (e.target.closest('.node')) return;
@@ -126,27 +133,28 @@ function setupZoomPan() {
     if (now - lastTap < 300) {
       e.preventDefault();
       const rect = area.getBoundingClientRect();
-      const touch = e.changedTouches[0];
-      const mx = touch.clientX - rect.left;
-      const my = touch.clientY - rect.top;
-      if (scale > 1.5) {
+      const t = e.changedTouches[0];
+      const mx = t.clientX - rect.left;
+      const my = t.clientY - rect.top;
+      if (scale > initialScale * 1.8) {
         resetZoom();
       } else {
-        zoomAt(mx, my, 2.5 / scale);
+        zoomAt(mx, my, 2.5);
       }
     }
     lastTap = now;
   });
 }
 
-function dist(a, b) {
-  const dx = a.clientX - b.clientX;
-  const dy = a.clientY - b.clientY;
+function touchDist(a, b) {
+  const dx = a.clientX - b.clientX, dy = a.clientY - b.clientY;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
+function clampScale(s) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)); }
+
 function zoomAt(x, y, factor) {
-  const newScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, scale * factor));
+  const newScale = clampScale(scale * factor);
   const ratio = newScale / scale;
   panX = x - (x - panX) * ratio;
   panY = y - (y - panY) * ratio;
@@ -156,30 +164,28 @@ function zoomAt(x, y, factor) {
 
 function applyTransform() {
   const inner = document.getElementById('graph-inner');
-  if (inner) {
-    inner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
-  }
+  if (inner) inner.style.transform = `translate(${panX}px,${panY}px) scale(${scale})`;
 }
 
 function resetZoom() {
-  scale = 1;
-  panX = 0;
-  panY = 0;
+  calcInitialScale();
   applyTransform();
 }
 
-// ── Data loading ──────────────────────────────────────────────
+// ── Data ──────────────────────────────────────────────────────
 
 async function loadData(season) {
   const area = document.getElementById('graph-area');
 
   if (!document.getElementById('graph-inner')) {
     area.innerHTML = `
-      <div id="graph-inner" style="position:absolute;top:0;left:0;width:100%;height:100%;transform-origin:0 0;">
+      <div id="graph-inner" style="position:absolute;top:0;left:0;width:${CANVAS_SIZE}px;height:${CANVAS_SIZE}px;transform-origin:0 0;">
         <svg id="esvg" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;"></svg>
       </div>
       <div class="loading">Loading season ${season}...</div>`;
     setupZoomPan();
+    calcInitialScale();
+    applyTransform();
   }
 
   const [{ data: pData }, { data: cData }] = await Promise.all([
@@ -203,55 +209,55 @@ async function loadData(season) {
   render();
 }
 
-// ── Rendering ─────────────────────────────────────────────────
+// ── Render ────────────────────────────────────────────────────
 
 function render() {
-  const area = document.getElementById('graph-area');
   const inner = document.getElementById('graph-inner');
   const svg = document.getElementById('esvg');
-  const W = area.offsetWidth;
-  const H = area.offsetHeight;
 
   svg.innerHTML = '';
   inner.querySelectorAll('.node').forEach(n => n.remove());
 
   const seasonPeople = getPeopleForSeason();
 
-  // Draw edges
+  // Edges — positioned on the 2000x2000 canvas
   connections.forEach(c => {
     const pa = people.find(p => p.id === c.person_a);
     const pb = people.find(p => p.id === c.person_b);
     if (!pa || !pb) return;
-    const x1 = pa.x_pos / 100 * W, y1 = pa.y_pos / 100 * H;
-    const x2 = pb.x_pos / 100 * W, y2 = pb.y_pos / 100 * H;
+    const x1 = pa.x_pos / 100 * CANVAS_SIZE;
+    const y1 = pa.y_pos / 100 * CANVAS_SIZE;
+    const x2 = pb.x_pos / 100 * CANVAS_SIZE;
+    const y2 = pb.y_pos / 100 * CANVAS_SIZE;
     const isActive = selectedPerson && (c.person_a === selectedPerson || c.person_b === selectedPerson);
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', x1); line.setAttribute('y1', y1);
     line.setAttribute('x2', x2); line.setAttribute('y2', y2);
     line.setAttribute('stroke', EDGE_COLORS[c.type] || '#888');
-    line.setAttribute('stroke-width', isActive ? '3' : '1.5');
+    line.setAttribute('stroke-width', isActive ? '4' : '2');
     line.setAttribute('opacity', isActive ? '0.9' : '0.25');
     svg.appendChild(line);
   });
 
-  // Draw nodes — bigger on mobile
-  const nodeSize = isMobile ? { pro: 56, celeb: 46 } : { pro: 52, celeb: 42 };
-  const fontSize = isMobile ? '12px' : '10px';
+  // Nodes — use pixel positions on the large canvas
+  // Bigger circles and text since we have room
+  const nodeSize = { pro: 80, celeb: 64 };
 
   seasonPeople.forEach(p => {
     const el = document.createElement('div');
     el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
-    el.style.left = p.x_pos + '%';
-    el.style.top = p.y_pos + '%';
+    // Position in pixels on the 2000px canvas
+    el.style.left = (p.x_pos / 100 * CANVAS_SIZE) + 'px';
+    el.style.top = (p.y_pos / 100 * CANVAS_SIZE) + 'px';
     const size = p.role === 'pro' ? nodeSize.pro : nodeSize.celeb;
     el.innerHTML = `
       <div class="node-circle" style="width:${size}px;height:${size}px;">
         ${p.photo_url
-          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
-          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
+          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};font-size:16px;>${p.initials||'?'}</div>'">`
+          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};font-size:16px;">${p.initials||'?'}</div>`
         }
       </div>
-      <div class="node-label" style="font-size:${fontSize}">${p.name.split(' ')[0]}</div>`;
+      <div class="node-label" style="font-size:14px;">${p.name}</div>`;
     el.addEventListener('click', e => {
       e.stopPropagation();
       selectPerson(p.id);
@@ -272,7 +278,7 @@ function addLegend() {
   const leg = document.createElement('div');
   leg.className = 'legend';
   leg.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
-    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g, ' ')}</div>`
+    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
   ).join('') +
     `<div class="leg" style="margin-left:auto;cursor:pointer;" onclick="resetZoom()">↺ reset</div>`;
   area.appendChild(leg);
@@ -284,10 +290,7 @@ function selectPerson(id) {
   selectedPerson = id;
   render();
   showPersonPanel(id);
-  // On mobile, scroll panel into view
-  if (isMobile) {
-    document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
-  }
+  if (isMobile) document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
 }
 
 function showPersonPanel(id) {
@@ -346,7 +349,7 @@ function showEdgePanel(a, b) {
     </div>
     ${edgeMoments.length
       ? edgeMoments.map(m => momentCard(m)).join('')
-      : '<p class="hint">No moments yet — this is where fan annotations would live.</p>'
+      : '<p class="hint">No moments yet.</p>'
     }
   `;
 }
@@ -431,6 +434,7 @@ function buildSeasonPicker() {
 
 window.addEventListener('resize', () => {
   isMobile = window.innerWidth < 600;
+  resetZoom();
   render();
 });
 

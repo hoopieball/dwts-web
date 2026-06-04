@@ -121,14 +121,11 @@ function getPeopleForSeason() {
 }
 
 function addLegend() {
-  const area = document.getElementById('graph-area');
-  area.querySelectorAll('.legend').forEach(l => l.remove());
-  const leg = document.createElement('div');
-  leg.className = 'legend';
-  leg.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
+  const bar = document.getElementById('legend-bar');
+  if (!bar) return;
+  bar.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
     `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
   ).join('');
-  area.appendChild(leg);
 }
 
 // ── Panels ────────────────────────────────────────────────────

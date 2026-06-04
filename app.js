@@ -37,6 +37,7 @@ async function loadData(season) {
   render();
 }
 
+
 // ── Render ────────────────────────────────────────────────────
 
 function render() {
@@ -163,12 +164,56 @@ function addLegend() {
 }
 
 // ── Panels ────────────────────────────────────────────────────
+function zoomToNode(id) {
+  const area = document.getElementById('graph-area');
+  const inner = document.getElementById('graph-inner');
+  const p = people.find(x => x.id === id);
+  if (!p || !inner) return;
 
+  const GRAPH_W = isMobile ? 900 : area.offsetWidth;
+  const GRAPH_H = isMobile ? 900 : area.offsetHeight;
+  const viewW = area.offsetWidth;
+  const viewH = area.offsetHeight;
+
+  const nodeX = p.x_pos / 100 * GRAPH_W;
+  const nodeY = p.y_pos / 100 * GRAPH_H;
+
+  const zoomLevel = isMobile ? 2 : 1.8;
+
+  const tx = viewW / 2 - nodeX * zoomLevel;
+  const ty = viewH / 2 - nodeY * zoomLevel;
+
+  inner.style.transition = 'transform 0.5s ease';
+  inner.style.transformOrigin = '0 0';
+  inner.style.transform = `translate(${tx}px, ${ty}px) scale(${zoomLevel})`;
+
+  // Disable scroll while zoomed
+  area.style.overflow = 'hidden';
+}
+
+function zoomOut() {
+  const area = document.getElementById('graph-area');
+  const inner = document.getElementById('graph-inner');
+  if (!inner) return;
+
+  inner.style.transition = 'transform 0.5s ease';
+  inner.style.transform = 'translate(0,0) scale(1)';
+
+  setTimeout(() => {
+    inner.style.transition = '';
+    area.style.overflow = 'auto';
+  }, 500);
+}
 function selectPerson(id) {
   selectedPerson = id;
   render();
   showPersonPanel(id);
-  if (isMobile) document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
+  zoomToNode(id);
+  if (isMobile) {
+    setTimeout(() => {
+      document.getElementById('panel').scrollIntoView({ behavior: 'smooth' });
+    }, 600);
+  }
 }
 
 function showPersonPanel(id) {
@@ -284,9 +329,12 @@ function playVid(id, videoId) {
 
 function clearSel() {
   selectedPerson = null;
+  zoomOut();
   render();
   document.getElementById('panel').innerHTML = '<p class="hint">Tap any node to explore their story</p>';
 }
+
+window.zoomOut = zoomOut;
 
 // ── Season picker ─────────────────────────────────────────────
 

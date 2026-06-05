@@ -175,20 +175,41 @@ function zoomToNode(id) {
   const viewW = area.offsetWidth;
   const viewH = area.offsetHeight;
 
+  if (!isMobile) {
+    // Desktop: simple zoom, no scroll issues
+    const nodeX = p.x_pos / 100 * GRAPH_W;
+    const nodeY = p.y_pos / 100 * GRAPH_H;
+    const z = 1.8;
+    inner.style.transition = 'transform 0.5s ease';
+    inner.style.transformOrigin = '0 0';
+    inner.style.transform = `translate(${viewW/2 - nodeX*z}px, ${viewH/2 - nodeY*z}px) scale(${z})`;
+    return;
+  }
+
+  // Mobile: disable scroll, use only transforms
+  area.style.overflow = 'hidden';
+  area.scrollLeft = 0;
+  area.scrollTop = 0;
+
   const nodeX = p.x_pos / 100 * GRAPH_W;
   const nodeY = p.y_pos / 100 * GRAPH_H;
+  const z = 2;
 
-  const zoomLevel = isMobile ? 2 : 1.8;
-
-  const tx = viewW / 2 - nodeX * zoomLevel;
-  const ty = viewH / 2 - nodeY * zoomLevel;
-
-  inner.style.transition = 'transform 0.5s ease';
+  // First frame: set transform to match current fit (no visual jump)
+  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
+  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
+  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+  inner.style.transition = 'none';
   inner.style.transformOrigin = '0 0';
-  inner.style.transform = `translate(${tx}px, ${ty}px) scale(${zoomLevel})`;
+  inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
 
-  // Disable scroll while zoomed
-  area.style.overflow = 'hidden';
+  // Next frame: animate to zoomed position
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      inner.style.transition = 'transform 0.5s ease';
+      inner.style.transform = `translate(${viewW/2 - nodeX*z}px, ${viewH/2 - nodeY*z}px) scale(${z})`;
+    });
+  });
 }
 
 function zoomOut() {
@@ -196,11 +217,27 @@ function zoomOut() {
   const inner = document.getElementById('graph-inner');
   if (!inner) return;
 
+  if (!isMobile) {
+    inner.style.transition = 'transform 0.5s ease';
+    inner.style.transform = 'none';
+    setTimeout(() => { inner.style.transition = ''; }, 500);
+    return;
+  }
+
+  const GRAPH_W = 900;
+  const GRAPH_H = 900;
+  const viewW = area.offsetWidth;
+  const viewH = area.offsetHeight;
+  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
+  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
+  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+
   inner.style.transition = 'transform 0.5s ease';
-  inner.style.transform = 'translate(0,0) scale(1)';
+  inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
 
   setTimeout(() => {
     inner.style.transition = '';
+    inner.style.transform = '';
     area.style.overflow = 'auto';
   }, 500);
 }

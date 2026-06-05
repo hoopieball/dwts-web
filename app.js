@@ -162,7 +162,11 @@ function addLegend() {
     `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
   ).join('');
 }
+inner.appendChild(el);
+  });
 
+  fitToScreen();  // ← add this line
+}
 // ── Panels ────────────────────────────────────────────────────
 function zoomToNode(id) {
   const area = document.getElementById('graph-area');
@@ -237,9 +241,26 @@ function zoomOut() {
 
   setTimeout(() => {
     inner.style.transition = '';
-    inner.style.transform = '';
-    area.style.overflow = 'auto';
+    area.style.overflow = 'hidden';  // ← keep hidden, not auto
   }, 500);
+}
+function fitToScreen() {
+  if (!isMobile) return;
+  const area = document.getElementById('graph-area');
+  const inner = document.getElementById('graph-inner');
+  if (!inner) return;
+
+  const GRAPH_W = 900;
+  const GRAPH_H = 900;
+  const viewW = area.offsetWidth;
+  const viewH = area.offsetHeight;
+  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
+  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
+  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+
+  area.style.overflow = 'hidden';
+  inner.style.transformOrigin = '0 0';
+  inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
 }
 function selectPerson(id) {
   selectedPerson = id;

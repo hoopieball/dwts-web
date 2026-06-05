@@ -10,6 +10,8 @@ body {
   overflow: hidden;
 }
 
+/* ── Header ────────────────────────────────── */
+
 #header {
   padding: 12px 20px;
   border-bottom: 0.5px solid #2a2a2a;
@@ -48,6 +50,51 @@ body {
   color: #fff;
 }
 
+/* ── Legend bar ─────────────────────────────── */
+
+#legend-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 20px;
+  border-bottom: 0.5px solid #2a2a2a;
+  flex-shrink: 0;
+}
+
+#legend-bar .leg {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #555;
+}
+
+#legend-bar .leg-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+/* Fallback legend inside graph area */
+.legend {
+  position: absolute;
+  bottom: 12px; left: 12px;
+  display: flex; flex-wrap: wrap; gap: 8px;
+  z-index: 10;
+}
+
+.leg {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 11px; color: #555;
+  background: rgba(15,15,15,0.8);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.leg-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+/* ── Main layout ───────────────────────────── */
+
 #main {
   display: flex;
   flex: 1;
@@ -61,12 +108,19 @@ body {
   overflow: hidden;
 }
 
+#graph-inner {
+  position: relative;
+  transform-origin: 0 0;
+}
+
 #esvg {
   position: absolute;
   top: 0; left: 0;
   width: 100%; height: 100%;
   pointer-events: none;
 }
+
+/* ── Nodes ─────────────────────────────────── */
 
 .node {
   position: absolute;
@@ -111,6 +165,8 @@ body {
   border-radius: 20px;
   display: inline-block;
 }
+
+/* ── Side panel ────────────────────────────── */
 
 #panel {
   width: 340px;
@@ -209,6 +265,8 @@ body {
   object-position: top;
 }
 
+/* ── Moment cards ──────────────────────────── */
+
 .mcard {
   background: #1a1a1a;
   border: 0.5px solid #2a2a2a;
@@ -221,6 +279,8 @@ body {
 .mtitle  { font-size: 14px; font-weight: 500; color: #e8e8e8; margin-bottom: 4px; }
 .mdesc   { font-size: 13px; color: #888; line-height: 1.5; margin-bottom: 8px; }
 
+/* ── Tags ──────────────────────────────────── */
+
 .tag {
   display: inline-block;
   font-size: 11px;
@@ -229,14 +289,16 @@ body {
   margin: 2px;
 }
 
-.t-drama   { background: #2a1020; color: #e07090; }
-.t-triumph { background: #0d2a1f; color: #2ecc71; }
-.t-bond    { background: #1a1840; color: #9b96f5; }
-.t-rivalry { background: #2a1808; color: #e08050; }
-.t-snub    { background: #2a2008; color: #d4a843; }
-.t-family  { background: #0d2a1f; color: #2ecc71; }
-.t-sytycd { background: #1a2a3a; color: #5ba8d4; }
+.t-drama        { background: #2a1020; color: #e07090; }
+.t-triumph      { background: #0d2a1f; color: #2ecc71; }
+.t-bond         { background: #1a1840; color: #9b96f5; }
+.t-rivalry      { background: #2a1808; color: #e08050; }
+.t-snub         { background: #2a2008; color: #d4a843; }
+.t-family       { background: #0d2a1f; color: #2ecc71; }
 .t-center_stage { background: #2a2008; color: #E0A830; }
+.t-sytycd       { background: #1a2a3a; color: #5ba8d4; }
+
+/* ── Video ─────────────────────────────────── */
 
 .vthumb {
   width: 100%;
@@ -270,36 +332,49 @@ body {
 .vframe { width: 100%; aspect-ratio: 16/9; border-radius: 8px; overflow: hidden; margin-bottom: 6px; }
 .vframe iframe { width: 100%; height: 100%; border: none; }
 
-#legend-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  padding: 8px 20px;
-  border-bottom: 0.5px solid #2a2a2a;
+/* ── Loading ───────────────────────────────── */
+
+.loading {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  color: #444; font-size: 14px;
 }
 
-#legend-bar .leg {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  color: #555;
-}
-
-#legend-bar .leg-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-}
+/* ── Mobile ────────────────────────────────── */
 
 @media (max-width: 600px) {
-  #main { flex-direction: column; }
-  #panel { width: 100%; border-left: none; border-top: 0.5px solid #2a2a2a; max-height: 45vh; }
-}
-#graph-inner { position: absolute; top: 0; left: 0; width: 100%; height: 100%; transform-origin: 0 0; }
-#graph-area {
-  flex: 1;
-  position: relative;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  body {
+    height: auto;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  #main {
+    flex-direction: column;
+    flex: none;
+  }
+
+  #graph-area {
+    width: 100%;
+    height: 55vh;
+    flex: none;
+    overflow: hidden;
+  }
+
+  #panel {
+    width: 100%;
+    border-left: none;
+    border-top: 0.5px solid #2a2a2a;
+    max-height: none;
+    flex: none;
+  }
+
+  #legend-bar {
+    padding: 6px 12px;
+    gap: 6px;
+  }
+
+  #legend-bar .leg {
+    font-size: 10px;
+  }
 }

@@ -37,156 +37,54 @@ async function loadData(season) {
   render();
 }
 
+// ── Zoom ──────────────────────────────────────────────────────
 
-// ── Render ────────────────────────────────────────────────────
-
-function render() {
+function getGraphSize() {
   const area = document.getElementById('graph-area');
-  
-  // On mobile, make the inner canvas larger than the viewport so you can scroll
-  const GRAPH_W = isMobile ? 900 : area.offsetWidth;
-  const GRAPH_H = isMobile ? 900 : area.offsetHeight;
-
-  // Create or reuse inner
-  let inner = document.getElementById('graph-inner');
-  if (!inner) {
-    inner = document.createElement('div');
-    inner.id = 'graph-inner';
-    area.appendChild(inner);
-  }
-  inner.style.width = GRAPH_W + 'px';
-  inner.style.height = GRAPH_H + 'px';
-  inner.style.position = 'relative';
-
-  // SVG
-  let svg = document.getElementById('esvg');
-  if (!svg) {
-    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-    svg.id = 'esvg';
-    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
-    inner.appendChild(svg);
-  }
-
-  svg.innerHTML = '';
-  inner.querySelectorAll('.node').forEach(n => n.remove());
-
-  const seasonPeople = getPeopleForSeason();
-
-  // Edges
-  connections.forEach(c => {
-    const pa = people.find(p => p.id === c.person_a);
-    const pb = people.find(p => p.id === c.person_b);
-    if (!pa || !pb) return;
-    const x1 = pa.x_pos / 100 * GRAPH_W, y1 = pa.y_pos / 100 * GRAPH_H;
-    const x2 = pb.x_pos / 100 * GRAPH_W, y2 = pb.y_pos / 100 * GRAPH_H;
-    const isActive = selectedPerson && (c.person_a === selectedPerson || c.person_b === selectedPerson);
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
-    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
-    line.setAttribute('stroke', EDGE_COLORS[c.type] || '#888');
-    line.setAttribute('stroke-width', isActive ? '3' : '1.5');
-    line.setAttribute('opacity', isActive ? '0.9' : '0.25');
-    svg.appendChild(line);
-  });
-
-  // Nodes
-  // Count connections per person
-  const connCount = {};
-  connections.forEach(c => {
-    connCount[c.person_a] = (connCount[c.person_a] || 0) + 1;
-    connCount[c.person_b] = (connCount[c.person_b] || 0) + 1;
-  });
-
-  const maxConns = Math.max(...Object.values(connCount), 1);
-  const labelSize = isMobile ? '12px' : '10px';
-
-  // Nodes — sized by connection count
-  seasonPeople.forEach(p => {
-    const count = connCount[p.id] || 1;
-    const ratio = count / maxConns;
-
-    // Min 36px, max 90px — scales with connections
-    const minSize = isMobile ? 40 : 36;
-    const maxSize = isMobile ? 100 : 90;
-    const size = Math.round(minSize + ratio * (maxSize - minSize));
-
-    const el = document.createElement('div');
-    el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
-    el.style.left = (p.x_pos / 100 * GRAPH_W) + 'px';
-    el.style.top = (p.y_pos / 100 * GRAPH_H) + 'px';
-    el.innerHTML = `
-      <div class="node-circle" style="width:${size}px;height:${size}px;">
-        ${p.photo_url
-          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
-          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
-        }
-      </div>
-      <div class="node-label" style="font-size:${labelSize}">${isMobile ? p.name : p.name.split(' ')[0]}</div>`;
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      selectPerson(p.id);
-    });
-    inner.appendChild(el);
-  });(p => {
-    const el = document.createElement('div');
-    el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
-    el.style.left = (p.x_pos / 100 * GRAPH_W) + 'px';
-    el.style.top = (p.y_pos / 100 * GRAPH_H) + 'px';
-    const size = p.role === 'pro' ? nodeSize.pro : nodeSize.celeb;
-    el.innerHTML = `
-      <div class="node-circle" style="width:${size}px;height:${size}px;">
-        ${p.photo_url
-          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
-          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
-        }
-      </div>
-      <div class="node-label" style="font-size:${labelSize}">${isMobile ? p.name : p.name.split(' ')[0]}</div>`;
-    el.addEventListener('click', e => {
-      e.stopPropagation();
-      selectPerson(p.id);
-    });
-    inner.appendChild(el);
-  });
+  return {
+    graphW: isMobile ? 900 : area.offsetWidth,
+    graphH: isMobile ? 900 : area.offsetHeight,
+    viewW: area.offsetWidth,
+    viewH: area.offsetHeight
+  };
 }
 
-function getPeopleForSeason() {
-  const ids = new Set();
-  connections.forEach(c => { ids.add(c.person_a); ids.add(c.person_b); });
-  return people.filter(p => ids.has(p.id));
+function fitToScreen() {
+  if (!isMobile) return;
+  const area = document.getElementById('graph-area');
+  const inner = document.getElementById('graph-inner');
+  if (!inner || !area) return;
+
+  const viewW = area.offsetWidth;
+  const viewH = area.offsetHeight;
+  if (viewW === 0 || viewH === 0) return;
+
+  const GRAPH_W = 900;
+  const GRAPH_H = 900;
+  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
+  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
+  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+
+  area.style.overflow = 'hidden';
+  inner.style.transformOrigin = '0 0';
+  inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
 }
 
-function addLegend() {
-  const bar = document.getElementById('legend-bar');
-  if (!bar) return;
-  bar.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
-    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
-  ).join('');
-}
-inner.appendChild(el);
-  });
-
-  fitToScreen();  // ← add this line
-}
-// ── Panels ────────────────────────────────────────────────────
 function zoomToNode(id) {
   const area = document.getElementById('graph-area');
   const inner = document.getElementById('graph-inner');
   const p = people.find(x => x.id === id);
   if (!p || !inner) return;
 
-  const GRAPH_W = isMobile ? 900 : area.offsetWidth;
-  const GRAPH_H = isMobile ? 900 : area.offsetHeight;
-  const viewW = area.offsetWidth;
-  const viewH = area.offsetHeight;
+  const { graphW, graphH, viewW, viewH } = getGraphSize();
 
   if (!isMobile) {
-    // Desktop: simple zoom, no scroll issues
-    const nodeX = p.x_pos / 100 * GRAPH_W;
-    const nodeY = p.y_pos / 100 * GRAPH_H;
+    const nodeX = p.x_pos / 100 * graphW;
+    const nodeY = p.y_pos / 100 * graphH;
     const z = 1.8;
     inner.style.transition = 'transform 0.5s ease';
     inner.style.transformOrigin = '0 0';
-    inner.style.transform = `translate(${viewW/2 - nodeX*z}px, ${viewH/2 - nodeY*z}px) scale(${z})`;
+    inner.style.transform = `translate(${viewW / 2 - nodeX * z}px, ${viewH / 2 - nodeY * z}px) scale(${z})`;
     return;
   }
 
@@ -195,14 +93,14 @@ function zoomToNode(id) {
   area.scrollLeft = 0;
   area.scrollTop = 0;
 
-  const nodeX = p.x_pos / 100 * GRAPH_W;
-  const nodeY = p.y_pos / 100 * GRAPH_H;
+  const nodeX = p.x_pos / 100 * graphW;
+  const nodeY = p.y_pos / 100 * graphH;
   const z = 2;
 
   // First frame: set transform to match current fit (no visual jump)
-  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
-  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
-  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+  const fitScale = Math.min(viewW / graphW, viewH / graphH);
+  const fitTx = (viewW - graphW * fitScale) / 2;
+  const fitTy = (viewH - graphH * fitScale) / 2;
   inner.style.transition = 'none';
   inner.style.transformOrigin = '0 0';
   inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
@@ -211,7 +109,7 @@ function zoomToNode(id) {
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
       inner.style.transition = 'transform 0.5s ease';
-      inner.style.transform = `translate(${viewW/2 - nodeX*z}px, ${viewH/2 - nodeY*z}px) scale(${z})`;
+      inner.style.transform = `translate(${viewW / 2 - nodeX * z}px, ${viewH / 2 - nodeY * z}px) scale(${z})`;
     });
   });
 }
@@ -241,27 +139,125 @@ function zoomOut() {
 
   setTimeout(() => {
     inner.style.transition = '';
-    area.style.overflow = 'hidden';  // ← keep hidden, not auto
+    area.style.overflow = 'hidden';
   }, 500);
 }
-function fitToScreen() {
-  if (!isMobile) return;
+
+// ── Render ────────────────────────────────────────────────────
+
+function render() {
   const area = document.getElementById('graph-area');
-  const inner = document.getElementById('graph-inner');
-  if (!inner) return;
+  const { graphW, graphH } = getGraphSize();
 
-  const GRAPH_W = 900;
-  const GRAPH_H = 900;
-  const viewW = area.offsetWidth;
-  const viewH = area.offsetHeight;
-  const fitScale = Math.min(viewW / GRAPH_W, viewH / GRAPH_H);
-  const fitTx = (viewW - GRAPH_W * fitScale) / 2;
-  const fitTy = (viewH - GRAPH_H * fitScale) / 2;
+  // Create or reuse inner
+  let inner = document.getElementById('graph-inner');
+  if (!inner) {
+    inner = document.createElement('div');
+    inner.id = 'graph-inner';
+    area.appendChild(inner);
+  }
+  inner.style.width = graphW + 'px';
+  inner.style.height = graphH + 'px';
+  inner.style.position = 'relative';
 
-  area.style.overflow = 'hidden';
-  inner.style.transformOrigin = '0 0';
-  inner.style.transform = `translate(${fitTx}px, ${fitTy}px) scale(${fitScale})`;
+  // SVG
+  let svg = document.getElementById('esvg');
+  if (!svg) {
+    svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.id = 'esvg';
+    svg.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+    inner.appendChild(svg);
+  }
+
+  svg.innerHTML = '';
+  inner.querySelectorAll('.node').forEach(n => n.remove());
+
+  const seasonPeople = getPeopleForSeason();
+
+  // Edges
+  connections.forEach(c => {
+    const pa = people.find(p => p.id === c.person_a);
+    const pb = people.find(p => p.id === c.person_b);
+    if (!pa || !pb) return;
+    const x1 = pa.x_pos / 100 * graphW, y1 = pa.y_pos / 100 * graphH;
+    const x2 = pb.x_pos / 100 * graphW, y2 = pb.y_pos / 100 * graphH;
+    const isActive = selectedPerson && (c.person_a === selectedPerson || c.person_b === selectedPerson);
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('stroke', EDGE_COLORS[c.type] || '#888');
+    line.setAttribute('stroke-width', isActive ? '3' : '1.5');
+    line.setAttribute('opacity', isActive ? '0.9' : '0.25');
+    svg.appendChild(line);
+  });
+
+  // Count connections per person for sizing
+  const connCount = {};
+  connections.forEach(c => {
+    connCount[c.person_a] = (connCount[c.person_a] || 0) + 1;
+    connCount[c.person_b] = (connCount[c.person_b] || 0) + 1;
+  });
+  const maxConns = Math.max(...Object.values(connCount), 1);
+  const labelSize = isMobile ? '12px' : '10px';
+
+  // Nodes — sized by connection count
+  seasonPeople.forEach(p => {
+    const count = connCount[p.id] || 1;
+    const ratio = count / maxConns;
+    const minSize = isMobile ? 40 : 36;
+    const maxSize = isMobile ? 100 : 90;
+    const size = Math.round(minSize + ratio * (maxSize - minSize));
+
+    const el = document.createElement('div');
+    el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
+    el.style.left = (p.x_pos / 100 * graphW) + 'px';
+    el.style.top = (p.y_pos / 100 * graphH) + 'px';
+    el.innerHTML = `
+      <div class="node-circle" style="width:${size}px;height:${size}px;">
+        ${p.photo_url
+          ? `<img src="${p.photo_url}" alt="${p.name}" onerror="this.parentNode.innerHTML='<div class=ini style=background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};>${p.initials||'?'}</div>'">`
+          : `<div class="ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`
+        }
+      </div>
+      <div class="node-label" style="font-size:${labelSize}">${isMobile ? p.name : p.name.split(' ')[0]}</div>`;
+    el.addEventListener('click', e => {
+      e.stopPropagation();
+      selectPerson(p.id);
+    });
+    inner.appendChild(el);
+  });
+
+  // Fit to screen on mobile after nodes are drawn
+  requestAnimationFrame(() => fitToScreen());
 }
+
+function getPeopleForSeason() {
+  const ids = new Set();
+  connections.forEach(c => { ids.add(c.person_a); ids.add(c.person_b); });
+  return people.filter(p => ids.has(p.id));
+}
+
+function addLegend() {
+  const bar = document.getElementById('legend-bar');
+  if (!bar) {
+    // Fallback: legend inside graph area
+    const area = document.getElementById('graph-area');
+    area.querySelectorAll('.legend').forEach(l => l.remove());
+    const leg = document.createElement('div');
+    leg.className = 'legend';
+    leg.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
+      `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
+    ).join('');
+    area.appendChild(leg);
+    return;
+  }
+  bar.innerHTML = Object.entries(EDGE_COLORS).map(([type, color]) =>
+    `<div class="leg"><div class="leg-dot" style="background:${color}"></div>${type.replace(/_/g,' ')}</div>`
+  ).join('');
+}
+
+// ── Panels ────────────────────────────────────────────────────
+
 function selectPerson(id) {
   selectedPerson = id;
   render();
@@ -392,8 +388,6 @@ function clearSel() {
   document.getElementById('panel').innerHTML = '<p class="hint">Tap any node to explore their story</p>';
 }
 
-window.zoomOut = zoomOut;
-
 // ── Season picker ─────────────────────────────────────────────
 
 function buildSeasonPicker() {
@@ -415,12 +409,17 @@ function buildSeasonPicker() {
 
 // ── Init ──────────────────────────────────────────────────────
 
-window.addEventListener('resize', () => { isMobile = window.innerWidth < 600; render(); });
+window.addEventListener('resize', () => {
+  isMobile = window.innerWidth < 600;
+  render();
+});
+
 window.selectPerson = selectPerson;
 window.showPersonPanel = showPersonPanel;
 window.showEdgePanel = showEdgePanel;
 window.clearSel = clearSel;
 window.playVid = playVid;
+window.zoomOut = zoomOut;
 
 buildSeasonPicker();
 loadData(currentSeason);

@@ -866,7 +866,7 @@ function editMoment(id) {
 }
 
 async function saveMoment() {
-  const ytId = document.getElementById('m-youtube').value.trim();
+  const ytId = extractYouTubeId(document.getElementById('m-youtube').value.trim());
   const obj = {
     connection_id: document.getElementById('m-connection').value,
     season: parseInt(document.getElementById('m-season').value) || null,
@@ -905,7 +905,7 @@ async function deleteMoment(id) {
 document.getElementById('m-youtube')?.addEventListener('input', updateVideoPreview);
 
 function updateVideoPreview() {
-  const ytId = document.getElementById('m-youtube').value.trim();
+  const ytId = extractYouTubeId(document.getElementById('m-youtube').value.trim());
   const preview = document.getElementById('m-preview');
   if (ytId) {
     preview.innerHTML = `<img src="https://img.youtube.com/vi/${ytId}/hqdefault.jpg" style="width:100%;border-radius:8px;border:0.5px solid #2a2a2a;">`;
@@ -914,6 +914,23 @@ function updateVideoPreview() {
   }
 }
 
+  function extractYouTubeId(input) {
+  if (!input) return null;
+  // Already just an ID (no slashes or dots)
+  if (/^[a-zA-Z0-9_-]{11}$/.test(input)) return input;
+  // Full URL formats
+  const patterns = [
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const match = input.match(p);
+    if (match) return match[1];
+  }
+  return input;
+}
 // ── Modal helpers ───────────────────────────
 
 function openModal(id) {

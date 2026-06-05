@@ -287,8 +287,6 @@
     .t-pro { background: #0d2a1f; color: #2ecc71; }
     .t-celeb { background: #2a2008; color: #d4a843; }
     .t-judge { background: #1a1840; color: #9b96f5; }
-    .t-sytycd { background: #1a2a3a; color: #5ba8d4; }
-    .t-center_stage { background: #2a2008; color: #E0A830; }
 
     .toast {
       position: fixed;
@@ -310,6 +308,90 @@
 
     .row { display: flex; gap: 12px; }
     .row > * { flex: 1; }
+
+    .pos-picker {
+      width: 100%;
+      aspect-ratio: 1;
+      background: #0f0f0f;
+      border: 0.5px solid #2a2a2a;
+      border-radius: 10px;
+      position: relative;
+      cursor: crosshair;
+      margin-bottom: 14px;
+      overflow: hidden;
+    }
+
+    .pos-picker .pp-node {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      border: 1px solid #333;
+    }
+
+    .pos-picker .pp-node img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: top;
+    }
+
+    .pos-picker .pp-node .pp-ini {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 8px;
+      font-weight: 500;
+    }
+
+    .pos-picker .pp-label {
+      position: absolute;
+      transform: translate(-50%, 0);
+      font-size: 8px;
+      color: #555;
+      white-space: nowrap;
+      pointer-events: none;
+    }
+
+    .pos-picker .pp-cursor {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid #7F77DD;
+      background: rgba(127, 119, 221, 0.2);
+      pointer-events: none;
+      display: none;
+    }
+
+    .pos-picker .pp-crosshair {
+      position: absolute;
+      pointer-events: none;
+      display: none;
+    }
+
+    .pos-picker .pp-crosshair.h {
+      height: 0.5px;
+      width: 100%;
+      background: rgba(127, 119, 221, 0.3);
+    }
+
+    .pos-picker .pp-crosshair.v {
+      width: 0.5px;
+      height: 100%;
+      background: rgba(127, 119, 221, 0.3);
+    }
+
+    .pos-coords {
+      text-align: center;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
 
     .empty {
       text-align: center;
@@ -414,9 +496,16 @@
     <textarea id="p-bio" placeholder="Short bio..."></textarea>
     <label>Photo URL (or Supabase storage path)</label>
     <input type="text" id="p-photo" placeholder="https://...">
+    <label>Position — click the map to place</label>
+    <div class="pos-coords" id="pos-coords">x: 50, y: 50</div>
+    <div class="pos-picker" id="pos-picker">
+      <div class="pp-crosshair h" id="pp-ch"></div>
+      <div class="pp-crosshair v" id="pp-cv"></div>
+      <div class="pp-cursor" id="pp-cursor"></div>
+    </div>
     <div class="row">
-      <div><label>X Position (0-100)</label><input type="number" id="p-x" placeholder="50" min="0" max="100"></div>
-      <div><label>Y Position (0-100)</label><input type="number" id="p-y" placeholder="50" min="0" max="100"></div>
+      <div><label>X Position</label><input type="number" id="p-x" placeholder="50" min="0" max="100"></div>
+      <div><label>Y Position</label><input type="number" id="p-y" placeholder="50" min="0" max="100"></div>
     </div>
     <div class="row">
       <div><label>BG Color</label><input type="text" id="p-bg" placeholder="#FAEEDA"></div>
@@ -444,8 +533,6 @@
           <option value="family">Family / Bond</option>
           <option value="rivalry">Rivalry / Drama</option>
           <option value="showmance">Showmance</option>
-          <option value="center_stage">Center Stage</option>
-<option value="sytycd">SYTYCD</option>
         </select>
       </div>
       <div><label>Season</label><input type="number" id="c-season" placeholder="34"></div>
@@ -592,12 +679,13 @@ function openPersonModal(p) {
   document.getElementById('p-bio').value = p?.bio || '';
   document.getElementById('p-photo').value = p?.photo_url || '';
   document.getElementById('p-seasons').value = (p?.seasons || []).join(',');
-  document.getElementById('p-x').value = p?.x_pos ?? '';
-  document.getElementById('p-y').value = p?.y_pos ?? '';
+  document.getElementById('p-x').value = p?.x_pos ?? 50;
+  document.getElementById('p-y').value = p?.y_pos ?? 50;
   document.getElementById('p-bg').value = p?.bg_color || '#FAEEDA';
   document.getElementById('p-tc').value = p?.text_color || '#633806';
   document.getElementById('p-initials').value = p?.initials || '';
   openModal('person-modal');
+  renderPosPicker(p?.x_pos ?? 50, p?.y_pos ?? 50);
 }
 
 function editPerson(id) {
@@ -844,8 +932,96 @@ function toast(msg, isError) {
   setTimeout(() => el.classList.remove('show'), 2500);
 }
 
-// ── GRANT for authenticated writes ──────────
-// (You need to run GRANT ALL ON public.people, connections, moments TO authenticated in Supabase SQL editor)
+// ── Position picker ──────────────────────────
+
+function renderPosPicker(currentX, currentY) {
+  const picker = document.getElementById('pos-picker');
+  if (!picker) return;
+
+  // Remove old nodes
+  picker.querySelectorAll('.pp-node, .pp-label').forEach(n => n.remove());
+
+  // Draw existing people as dots
+  people.forEach(p => {
+    if (editingPerson && p.id === editingPerson.id) return;
+    const x = p.x_pos || 50;
+    const y = p.y_pos || 50;
+    const size = 20;
+
+    const dot = document.createElement('div');
+    dot.className = 'pp-node';
+    dot.style.left = x + '%';
+    dot.style.top = y + '%';
+    dot.style.width = size + 'px';
+    dot.style.height = size + 'px';
+
+    if (p.photo_url) {
+      dot.innerHTML = `<img src="${p.photo_url}" alt="${p.name}">`;
+    } else {
+      dot.innerHTML = `<div class="pp-ini" style="background:${p.bg_color||'#333'};color:${p.text_color||'#fff'};">${p.initials||'?'}</div>`;
+    }
+    picker.appendChild(dot);
+
+    const label = document.createElement('div');
+    label.className = 'pp-label';
+    label.style.left = x + '%';
+    label.style.top = `calc(${y}% + 12px)`;
+    label.textContent = p.name.split(' ')[0];
+    picker.appendChild(label);
+  });
+
+  // Show current position
+  updatePickerCursor(currentX, currentY);
+
+  // Update coords display
+  document.getElementById('pos-coords').textContent = `x: ${Math.round(currentX)}, y: ${Math.round(currentY)}`;
+}
+
+function updatePickerCursor(x, y) {
+  const cursor = document.getElementById('pp-cursor');
+  const ch = document.getElementById('pp-ch');
+  const cv = document.getElementById('pp-cv');
+  if (!cursor) return;
+
+  cursor.style.display = 'block';
+  cursor.style.left = x + '%';
+  cursor.style.top = y + '%';
+
+  ch.style.display = 'block';
+  ch.style.top = y + '%';
+
+  cv.style.display = 'block';
+  cv.style.left = x + '%';
+}
+
+// Click handler for position picker
+document.addEventListener('click', e => {
+  const picker = document.getElementById('pos-picker');
+  if (!picker || !picker.contains(e.target) || e.target.closest('.pp-node')) return;
+
+  const rect = picker.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 100;
+  const y = ((e.clientY - rect.top) / rect.height) * 100;
+
+  const clampedX = Math.max(8, Math.min(92, x));
+  const clampedY = Math.max(8, Math.min(92, y));
+
+  document.getElementById('p-x').value = Math.round(clampedX);
+  document.getElementById('p-y').value = Math.round(clampedY);
+  document.getElementById('pos-coords').textContent = `x: ${Math.round(clampedX)}, y: ${Math.round(clampedY)}`;
+  updatePickerCursor(clampedX, clampedY);
+});
+
+// Sync manual X/Y input with picker
+document.getElementById('p-x')?.addEventListener('input', syncPickerFromInputs);
+document.getElementById('p-y')?.addEventListener('input', syncPickerFromInputs);
+
+function syncPickerFromInputs() {
+  const x = parseFloat(document.getElementById('p-x').value) || 50;
+  const y = parseFloat(document.getElementById('p-y').value) || 50;
+  document.getElementById('pos-coords').textContent = `x: ${Math.round(x)}, y: ${Math.round(y)}`;
+  updatePickerCursor(x, y);
+}
 
 // ── Init ────────────────────────────────────
 checkSession();

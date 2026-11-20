@@ -2,7 +2,7 @@ const client = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 let people = [], connections = [], moments = [];
 let selectedPerson = null;
-let currentSeason = 34;
+let currentSeason = null;
 let isMobile = window.innerWidth < 600;
 
 const EDGE_COLORS = {
@@ -15,6 +15,13 @@ const EDGE_COLORS = {
 };
 
 // ── Data ──────────────────────────────────────────────────────
+
+// A person's spot on the map for the current season. Falls back to their
+// default x_pos/y_pos when no season-specific layout has been saved.
+function pos(p) {
+  const s = p.positions && p.positions[String(currentSeason)];
+  return s ? { x: s.x, y: s.y } : { x: p.x_pos, y: p.y_pos };
+}
 
 async function loadData(season) {
   const [{ data: pData }, { data: cData }] = await Promise.all([
@@ -79,8 +86,8 @@ function zoomToNode(id) {
   const { graphW, graphH, viewW, viewH } = getGraphSize();
 
   if (!isMobile) {
-    const nodeX = p.x_pos / 100 * graphW;
-    const nodeY = p.y_pos / 100 * graphH;
+    const nodeX = pos(p).x / 100 * graphW;
+    const nodeY = pos(p).y / 100 * graphH;
     const z = 1.8;
     inner.style.transition = 'transform 0.5s ease';
     inner.style.transformOrigin = '0 0';
@@ -93,8 +100,8 @@ function zoomToNode(id) {
   area.scrollLeft = 0;
   area.scrollTop = 0;
 
-  const nodeX = p.x_pos / 100 * graphW;
-  const nodeY = p.y_pos / 100 * graphH;
+  const nodeX = pos(p).x / 100 * graphW;
+  const nodeY = pos(p).y / 100 * graphH;
   const z = 2;
 
   // First frame: set transform to match current fit (no visual jump)
@@ -179,8 +186,8 @@ function render() {
     const pa = people.find(p => p.id === c.person_a);
     const pb = people.find(p => p.id === c.person_b);
     if (!pa || !pb) return;
-    const x1 = pa.x_pos / 100 * graphW, y1 = pa.y_pos / 100 * graphH;
-    const x2 = pb.x_pos / 100 * graphW, y2 = pb.y_pos / 100 * graphH;
+    const x1 = pos(pa).x / 100 * graphW, y1 = pos(pa).y / 100 * graphH;
+    const x2 = pos(pb).x / 100 * graphW, y2 = pos(pb).y / 100 * graphH;
     const isActive = selectedPerson && (c.person_a === selectedPerson || c.person_b === selectedPerson);
     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
     line.setAttribute('x1', x1); line.setAttribute('y1', y1);
@@ -210,8 +217,8 @@ function render() {
 
     const el = document.createElement('div');
     el.className = 'node' + (selectedPerson === p.id ? ' selected' : '');
-    el.style.left = (p.x_pos / 100 * graphW) + 'px';
-    el.style.top = (p.y_pos / 100 * graphH) + 'px';
+    el.style.left = (pos(p).x / 100 * graphW) + 'px';
+    el.style.top = (pos(p).y / 100 * graphH) + 'px';
     el.innerHTML = `
       <div class="node-circle" style="width:${size}px;height:${size}px;">
         ${p.photo_url
@@ -282,7 +289,7 @@ function showPersonPanel(id) {
       ${avatarHtml(p, 52)}
       <div>
         <div class="pname">${p.name} ${finishBadge(conns)}</div>
-        <div class="prole">${p.role === 'pro' ? 'Pro dancer' : 'Celebrity · Season ' + currentSeason}</div>
+        <div class="prole">${p.role === 'pro' ? 'Pro dancer' : 'Celebrity · Season ' + ((p.seasons && p.seasons.length) ? p.seasons.join(', ') : currentSeason)}</div>
         <div class="pbio">${p.bio || ''}</div>
       </div>
     </div>
@@ -390,17 +397,25 @@ function clearSel() {
 
 // ── Season picker ─────────────────────────────────────────────
 
-function buildSeasonPicker() {
+async function buildSeasonPicker() {
   const picker = document.getElementById('season-picker');
-  [34].forEach(s => {
+  // Every season that has at least one connection gets a button.
+  const { data } = await client.from('connections').select('season');
+  const seasons = [...new Set((data || []).map(r => r.season).filter(Boolean))].sort((a, b) => a - b);
+  if (!seasons.length) seasons.push(34);
+  currentSeason = seasons[seasons.length - 1]; // open on the newest season
+
+  picker.innerHTML = '';
+  seasons.forEach(s => {
     const btn = document.createElement('button');
     btn.className = 'season-btn' + (s === currentSeason ? ' active' : '');
     btn.textContent = 'Season ' + s;
     btn.onclick = () => {
+      if (s === currentSeason) return;
       currentSeason = s;
       document.querySelectorAll('.season-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      selectedPerson = null;
+      clearSel();
       loadData(s);
     };
     picker.appendChild(btn);
@@ -421,5 +436,4 @@ window.clearSel = clearSel;
 window.playVid = playVid;
 window.zoomOut = zoomOut;
 
-buildSeasonPicker();
-loadData(currentSeason);
+buildSeasonPicker().then(() => loadData(currentSeason));
